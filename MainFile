@@ -1,162 +1,263 @@
-import React, { useCallback } from 'react';
-import { useDropzone } from 'react-dropzone';
-import { Upload, FileSpreadsheet } from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import React, { useState } from 'react';
+import { FileUpload } from '@/components/FileUpload';
+import { TestMatrix } from '@/components/TestMatrix';
+import { TestSummary } from '@/components/TestSummary';
 import { Button } from '@/components/ui/button';
-import * as XLSX from 'xlsx';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { BarChart3, FileSpreadsheet, Download, RefreshCw } from 'lucide-react';
 
-interface FileUploadProps {
-  onDataLoad: (data: any[]) => void;
+interface TestData {
+  Name: string;
+  'Test Item ID': string;
+  Verdict: string;
+  'Verdict Comment': string;
+  Tester: string;
+  Date: string;
 }
 
-export const FileUpload: React.FC<FileUploadProps> = ({ onDataLoad }) => {
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    const file = acceptedFiles[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const data = e.target?.result;
-          const workbook = XLSX.read(data, { type: 'binary' });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-          
-          // Convert to objects with proper headers
-          const jsonData2D = jsonData as any[][];
-          let headerRow = jsonData2D[0] as string[];
-          let dataStartRow = 1;
-          
-          // Define required columns in order
-          const requiredColumns = ['Name', 'Test Item ID', 'Verdict', 'Verdict Comment', 'Tester', 'Date'];
-          
-          // Check if required columns exist in first row, if not check second row
-          const hasRequiredColumns = (headers: string[]) => {
-            return requiredColumns.some(reqCol => 
-              headers.some(header => 
-                header && header.toString().toLowerCase().trim() === reqCol.toLowerCase()
-              )
-            );
-          };
-          
-          if (!hasRequiredColumns(headerRow) && jsonData2D.length > 1) {
-            // Try second row as headers
-            headerRow = jsonData2D[1] as string[];
-            dataStartRow = 2;
-          }
-          
-          const rows = jsonData2D.slice(dataStartRow);
-          
-          // Find the index of "Name" column
-          const nameColumnIndex = headerRow.findIndex(header => 
-            header && header.toString().toLowerCase().trim() === 'name'
-          );
-          
-          if (nameColumnIndex === -1) {
-            console.error('Name column not found in Excel file');
-            return;
-          }
-          
-          // Map required columns to their indices in the Excel file
-          const columnMapping: { [key: string]: number } = {};
-          requiredColumns.forEach(reqCol => {
-            const index = headerRow.findIndex(header => 
-              header && header.toString().toLowerCase().trim() === reqCol.toLowerCase()
-            );
-            if (index !== -1) {
-              columnMapping[reqCol] = index;
-            }
-          });
-          
-          const parsedData = rows.map(row => {
-            // Check if the cell next to "Name" column has content
-            const testCaseName = row[nameColumnIndex + 1];
-            
-            // More robust check for empty cells - ignore undefined, null, empty string, whitespace, numbers that are 0, etc.
-            if (!testCaseName || 
-                testCaseName === '' || 
-                (typeof testCaseName === 'string' && testCaseName.trim() === '') ||
-                testCaseName === null ||
-                testCaseName === undefined) {
-              return null; // Skip this row
-            }
-            
-            // Also check if Test Item ID is valid
-            const testItemId = columnMapping['Test Item ID'] !== undefined ? row[columnMapping['Test Item ID']] : '';
-            if (!testItemId || 
-                testItemId === '' || 
-                (typeof testItemId === 'string' && testItemId.trim() === '') ||
-                testItemId === null ||
-                testItemId === undefined) {
-              return null; // Skip this row if Test Item ID is empty
-            }
-            
-            const obj: any = {};
-            requiredColumns.forEach(column => {
-              if (column === 'Name') {
-                // Use the cell next to "Name" column for testcase name
-                obj[column] = testCaseName;
-              } else if (columnMapping[column] !== undefined) {
-                obj[column] = row[columnMapping[column]] || '';
-              } else {
-                obj[column] = '';
-              }
-            });
-            return obj;
-          }).filter(row => row !== null); // Remove null entries
-          
-          onDataLoad(parsedData);
-        } catch (error) {
-          console.error('Error parsing Excel file:', error);
+const Index = () => {
+  const [testData, setTestData] = useState<TestData[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const handleDataLoad = (data: TestData[]) => {
+    setLoading(true);
+    // Simulate processing time for better UX
+    setTimeout(() => {
+      setTestData(data);
+      setLoading(false);
+    }, 500);
+  };
+
+  const handleReset = () => {
+    setTestData([]);
+  };
+
+  const handleExportReport = () => {
+    // Import XLSX dynamically since it's already installed
+    import('xlsx').then((XLSX) => {
+      // Create a new workbook
+      const wb = XLSX.utils.book_new();
+      
+      // Sheet 1: Raw test data
+      const rawDataSheet = XLSX.utils.json_to_sheet(testData);
+      XLSX.utils.book_append_sheet(wb, rawDataSheet, 'Test Data');
+      
+      // Sheet 2: Summary statistics for charts
+      const verdictStats = testData.reduce((acc, test) => {
+        const verdict = (test.Verdict || '').toLowerCase();
+        if (verdict.includes('pass') || verdict.includes('success')) {
+          acc.passed += 1;
+        } else if (verdict.includes('fail') || verdict.includes('error')) {
+          acc.failed += 1;
+        } else {
+          acc.none += 1;
         }
-      };
-      reader.readAsBinaryString(file);
-    }
-  }, [onDataLoad]);
+        return acc;
+      }, { passed: 0, failed: 0, none: 0 });
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-      'application/vnd.ms-excel': ['.xls']
-    },
-    multiple: false
-  });
+      const summaryData = [
+        { Metric: 'Total Tests', Value: testData.length },
+        { Metric: 'Passed Tests', Value: verdictStats.passed },
+        { Metric: 'Failed Tests', Value: verdictStats.failed },
+        { Metric: 'Other/Pending Tests', Value: verdictStats.none },
+        { Metric: 'Pass Rate (%)', Value: testData.length > 0 ? ((verdictStats.passed / testData.length) * 100).toFixed(1) : '0' }
+      ];
+      
+      const summarySheet = XLSX.utils.json_to_sheet(summaryData);
+      XLSX.utils.book_append_sheet(wb, summarySheet, 'Summary');
+      
+      // Sheet 3: Tester performance data
+      const testerStats = testData.reduce((acc, test) => {
+        const tester = test.Tester || 'Unknown';
+        acc[tester] = (acc[tester] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
 
+      const testerData = Object.entries(testerStats).map(([tester, count]) => ({
+        Tester: tester,
+        'Total Tests': count,
+        'Passed Tests': testData.filter(t => (t.Tester || 'Unknown') === tester && ((t.Verdict || '').toLowerCase().includes('pass') || (t.Verdict || '').toLowerCase().includes('success'))).length,
+        'Failed Tests': testData.filter(t => (t.Tester || 'Unknown') === tester && ((t.Verdict || '').toLowerCase().includes('fail') || (t.Verdict || '').toLowerCase().includes('error'))).length,
+        'Other Tests': testData.filter(t => (t.Tester || 'Unknown') === tester && !((t.Verdict || '').toLowerCase().includes('pass') || (t.Verdict || '').toLowerCase().includes('success') || (t.Verdict || '').toLowerCase().includes('fail') || (t.Verdict || '').toLowerCase().includes('error'))).length,
+        'Pass Rate (%)': count > 0 ? ((testData.filter(t => (t.Tester || 'Unknown') === tester && ((t.Verdict || '').toLowerCase().includes('pass') || (t.Verdict || '').toLowerCase().includes('success'))).length / count) * 100).toFixed(1) : '0'
+      }));
+      
+      const testerSheet = XLSX.utils.json_to_sheet(testerData);
+      XLSX.utils.book_append_sheet(wb, testerSheet, 'Tester Performance');
+      
+      // Sheet 4: Verdict distribution for pie chart
+      const verdictDistribution = [
+        { Status: 'Passed', Count: verdictStats.passed, Percentage: testData.length > 0 ? ((verdictStats.passed / testData.length) * 100).toFixed(1) : '0' },
+        { Status: 'Failed', Count: verdictStats.failed, Percentage: testData.length > 0 ? ((verdictStats.failed / testData.length) * 100).toFixed(1) : '0' },
+        { Status: 'Other/Pending', Count: verdictStats.none, Percentage: testData.length > 0 ? ((verdictStats.none / testData.length) * 100).toFixed(1) : '0' }
+      ];
+      
+      const verdictSheet = XLSX.utils.json_to_sheet(verdictDistribution);
+      XLSX.utils.book_append_sheet(wb, verdictSheet, 'Verdict Distribution');
+      
+      // Generate filename with current date
+      const now = new Date();
+      const filename = `test-report-${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}.xlsx`;
+      
+      // Write and download the file
+      XLSX.writeFile(wb, filename);
+    });
+  };
+
+  const generateSampleData = () => {
+    const sampleData: TestData[] = [
+      {
+        Name: "Login Functionality Test",
+        "Test Item ID": "TC001",
+        Verdict: "Pass",
+        "Verdict Comment": "User can successfully log in with valid credentials",
+        Tester: "John Doe",
+        Date: "2024-01-15"
+      },
+      {
+        Name: "Password Reset Test",
+        "Test Item ID": "TC002", 
+        Verdict: "Pass",
+        "Verdict Comment": "Password reset email sent successfully",
+        Tester: "Jane Smith",
+        Date: "2024-01-16"
+      },
+      {
+        Name: "File Upload Test",
+        "Test Item ID": "TC003",
+        Verdict: "Fail", 
+        "Verdict Comment": "Large files timeout during upload",
+        Tester: "Bob Johnson",
+        Date: "2024-01-17"
+      },
+      {
+        Name: "Database Connection Test",
+        "Test Item ID": "TC004",
+        Verdict: "Pass",
+        "Verdict Comment": "Connection established successfully",
+        Tester: "Alice Brown",
+        Date: "2024-01-18"
+      },
+      {
+        Name: "API Response Test",
+        "Test Item ID": "TC005",
+        Verdict: "Pending",
+        "Verdict Comment": "Waiting for API endpoint to be available",
+        Tester: "Charlie Wilson",
+        Date: "2024-01-19"
+      }
+    ];
+    handleDataLoad(sampleData);
+  };
+
+  console.log('Rendering Index page, testData.length:', testData.length);
+  
   return (
-    <Card className="glass-effect shadow-card hover:shadow-elegant transition-all duration-300">
-      <div
-        {...getRootProps()}
-        className={`p-8 text-center cursor-pointer rounded-lg transition-all duration-300 ${
-          isDragActive 
-            ? 'bg-primary/10 border-primary border-2 border-dashed' 
-            : 'border-2 border-dashed border-border hover:border-primary/50'
-        }`}
-      >
-        <input {...getInputProps()} />
-        <div className="flex flex-col items-center space-y-4">
-          {isDragActive ? (
-            <FileSpreadsheet className="w-16 h-16 text-primary animate-bounce" />
-          ) : (
-            <Upload className="w-16 h-16 text-muted-foreground" />
-          )}
-          <div>
-            <h3 className="text-lg font-semibold mb-2">
-              {isDragActive ? 'Drop your Excel file here' : 'Upload Test Report'}
-            </h3>
-            <p className="text-muted-foreground mb-4">
-              Drop your Excel file here, or click to select
-            </p>
-            <Button variant="outline" className="mx-auto">
-              Select File
-            </Button>
-          </div>
-          <div className="text-xs text-muted-foreground">
-            <p>Supported formats: .xlsx, .xls</p>
-            <p>Required columns: Name, Test Item ID, Verdict, Verdict Comment, Tester, Date</p>
-          </div>
+    <div className="min-h-screen p-4 md:p-8" style={{ backgroundColor: '#f8fafc' }}>
+      <div className="max-w-7xl mx-auto space-y-8">
+        {/* Debug info */}
+        <div style={{ position: 'fixed', top: '10px', right: '10px', background: 'red', color: 'white', padding: '5px', fontSize: '12px', zIndex: 9999 }}>
+          Debug: testData length = {testData.length}
         </div>
+        
+        {/* Header */}
+        <div className="text-center space-y-4">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <BarChart3 className="w-8 h-8" style={{ color: '#6366f1' }} />
+            <h1 className="text-4xl font-bold" style={{ color: '#1f2937' }}>
+              Test Report Matrix
+            </h1>
+          </div>
+          <p className="text-lg max-w-2xl mx-auto" style={{ color: '#6b7280' }}>
+            Upload your Excel test reports and get comprehensive visual analysis of test results, 
+            team performance, and quality metrics.
+          </p>
+        </div>
+
+        {/* Main Content */}
+        {testData.length === 0 ? (
+          <div className="space-y-6">
+            <FileUpload onDataLoad={handleDataLoad} />
+            
+            {/* Sample Data Option */}
+            <Card className="glass-effect shadow-card text-center">
+              <CardContent className="p-6">
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Want to try it out?</h3>
+                  <p className="text-muted-foreground">
+                    Generate sample test data to explore the features
+                  </p>
+                  <Button 
+                    onClick={generateSampleData} 
+                    variant="hero" 
+                    className="mx-auto"
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <FileSpreadsheet className="w-4 h-4" />
+                        Generate Sample Data
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Action Bar */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
+              <div className="flex items-center gap-2">
+                <FileSpreadsheet className="w-5 h-5 text-primary" />
+                <span className="font-medium">
+                  {testData.length} test records loaded
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={handleReset}>
+                  <RefreshCw className="w-4 h-4" />
+                  Load New File
+                </Button>
+                <Button variant="hero" onClick={handleExportReport}>
+                  <Download className="w-4 h-4" />
+                  Export Report
+                </Button>
+              </div>
+            </div>
+
+            {/* Tabs for different views */}
+            <Tabs defaultValue="summary" className="space-y-6">
+              <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto">
+                <TabsTrigger value="summary" className="flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4" />
+                  Summary
+                </TabsTrigger>
+                <TabsTrigger value="matrix" className="flex items-center gap-2">
+                  <FileSpreadsheet className="w-4 h-4" />
+                  Matrix View
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="summary" className="space-y-6">
+                <TestSummary data={testData} />
+              </TabsContent>
+
+              <TabsContent value="matrix" className="space-y-6">
+                <TestMatrix data={testData} />
+              </TabsContent>
+            </Tabs>
+          </div>
+        )}
       </div>
-    </Card>
+    </div>
   );
 };
+
+export default Index;
