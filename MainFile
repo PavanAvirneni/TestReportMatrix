@@ -260,3 +260,121 @@ export const TestReportDashboard = ({ testCases }: TestReportDashboardProps) => 
     </div>
   );
 };
+
+
+import * as XLSX from 'xlsx';
+
+export interface TestCase {
+  id: string;
+  name: string;
+  verdict: 'Pass' | 'Fail' | 'Blocked' | 'Not Executed';
+  executionDate: string;
+  owner: string;
+  verdictComment: string;
+}
+
+export const parseExcelFile = async (file: File): Promise<TestCase[]> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      try {
+        const data = e.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        
+        // Get the first worksheet
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        
+        // Convert to JSON
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        
+        if (jsonData.length < 2) {
+          throw new Error('Excel file must contain at least a header row and one data row');
+        }
+        
+        // Assume first row is headers
+        const headers = jsonData[0] as string[];
+        const dataRows = jsonData.slice(1) as any[][];
+        
+        // Find column indices (case insensitive)
+        const findColumnIndex = (columnNames: string[]) => {
+          for (const name of columnNames) {
+            const index = headers.findIndex(header => 
+              header?.toString().toLowerCase().includes(name.toLowerCase())
+            );
+            if (index !== -1) return index;
+          }
+          return -1;
+        };
+        
+        const idIndex = findColumnIndex(['Test Item ID']);
+        const nameIndex = findColumnIndex(['Name']);
+        const verdictIndex = findColumnIndex(['Verdict']);
+        const dateIndex = findColumnIndex(['Date']);
+        const ownerIndex = findColumnIndex(['Tester']);
+        const commentIndex = findColumnIndex(['Verdict Comment']);
+        
+        if (idIndex === -1 || nameIndex === -1 || verdictIndex === -1 || ownerIndex === -1) {
+          throw new Error('Required columns not found. Please ensure your Excel file has columns for: Test Case ID, Test Case Name, Verdict, and Owner');
+        }
+        
+        const testCases: TestCase[] = dataRows
+          .filter(row => row[idIndex] && row[nameIndex]) // Filter out empty rows
+          .map((row, index) => {
+            const verdict = row[verdictIndex]?.toString().toLowerCase();
+            let normalizedVerdict: TestCase['verdict'] = 'Not Executed';
+            
+            if (verdict?.includes('pass')) normalizedVerdict = 'Pass';
+            else if (verdict?.includes('fail')) normalizedVerdict = 'Fail';
+            else if (verdict?.includes('block')) normalizedVerdict = 'Blocked';
+            
+            return {
+              id: row[idIndex]?.toString() || `TC-${index + 1}`,
+              name: row[nameIndex]?.toString() || 'Unnamed Test Case',
+              verdict: normalizedVerdict,
+              executionDate: dateIndex !== -1 ? formatDate(row[dateIndex]) : new Date().toLocaleDateString(),
+              owner: row[ownerIndex]?.toString() || 'Unknown',
+              verdictComment: commentIndex !== -1 ? row[commentIndex]?.toString() || '' : ''
+            };
+          });
+        
+        if (testCases.length === 0) {
+          throw new Error('No valid test case data found in the Excel file');
+        }
+        
+        resolve(testCases);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    
+    reader.onerror = () => {
+      reject(new Error('Failed to read the file'));
+    };
+    
+    reader.readAsBinaryString(file);
+  });
+};
+
+const formatDate = (dateValue: any): string => {
+  if (!dateValue) return new Date().toLocaleDateString();
+  
+  // Handle Excel date serial numbers
+  if (typeof dateValue === 'number') {
+    const excelDate = XLSX.SSF.parse_date_code(dateValue);
+    if (excelDate) {
+      return new Date(excelDate.y, excelDate.m - 1, excelDate.d).toLocaleDateString();
+    }
+  }
+  
+  // Handle string dates
+  if (typeof dateValue === 'string') {
+    const date = new Date(dateValue);
+    if (!isNaN(date.getTime())) {
+      return date.toLocaleDateString();
+    }
+  }
+  
+  return dateValue.toString();
+};
