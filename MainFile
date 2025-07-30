@@ -1,380 +1,162 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { CheckCircle, XCircle, AlertCircle, Clock, Users, Calendar } from 'lucide-react';
-
-interface TestCase {
-  id: string;
-  name: string;
-  verdict: 'Pass' | 'Fail' | 'Blocked' | 'Not Executed';
-  executionDate: string;
-  owner: string;
-  verdictComment: string;
-}
-
-interface TestReportDashboardProps {
-  testCases: TestCase[];
-}
-
-export const TestReportDashboard = ({ testCases }: TestReportDashboardProps) => {
-  const totalTests = testCases.length;
-  const passedTests = testCases.filter(test => test.verdict === 'Pass').length;
-  const failedTests = testCases.filter(test => test.verdict === 'Fail').length;
-  const blockedTests = testCases.filter(test => test.verdict === 'Blocked').length;
-  const notExecutedTests = testCases.filter(test => test.verdict === 'Not Executed').length;
-
-  const passRate = totalTests > 0 ? (passedTests / totalTests) * 100 : 0;
-  const failRate = totalTests > 0 ? (failedTests / totalTests) * 100 : 0;
-
-  const uniqueOwners = [...new Set(testCases.map(test => test.owner))];
-  const executionDates = [...new Set(testCases.map(test => test.executionDate))].length;
-
-  const getVerdictIcon = (verdict: string) => {
-    switch (verdict) {
-      case 'Pass':
-        return <CheckCircle className="h-4 w-4 text-success" />;
-      case 'Fail':
-        return <XCircle className="h-4 w-4 text-destructive" />;
-      case 'Blocked':
-        return <AlertCircle className="h-4 w-4 text-warning" />;
-      default:
-        return <Clock className="h-4 w-4 text-muted-foreground" />;
-    }
-  };
-
-  const getVerdictColor = (verdict: string) => {
-    switch (verdict) {
-      case 'Pass':
-        return 'bg-success text-success-foreground';
-      case 'Fail':
-        return 'bg-destructive text-destructive-foreground';
-      case 'Blocked':
-        return 'bg-warning text-warning-foreground';
-      default:
-        return 'bg-muted text-muted-foreground';
-    }
-  };
-
-  return (
-    <div className="space-y-8">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="bg-gradient-primary">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-primary-foreground/80 text-sm font-medium">Total Tests</p>
-                <p className="text-3xl font-bold text-primary-foreground">{totalTests}</p>
-              </div>
-              <div className="h-12 w-12 bg-primary-foreground/20 rounded-full flex items-center justify-center">
-                <CheckCircle className="h-6 w-6 text-primary-foreground" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-success">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-success-foreground/80 text-sm font-medium">Pass Rate</p>
-                <p className="text-3xl font-bold text-success-foreground">{passRate.toFixed(1)}%</p>
-              </div>
-              <div className="h-12 w-12 bg-success-foreground/20 rounded-full flex items-center justify-center">
-                <CheckCircle className="h-6 w-6 text-success-foreground" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-muted-foreground text-sm font-medium">Team Members</p>
-                <p className="text-3xl font-bold text-foreground">{uniqueOwners.length}</p>
-              </div>
-              <div className="h-12 w-12 bg-accent rounded-full flex items-center justify-center">
-                <Users className="h-6 w-6 text-accent-foreground" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-muted-foreground text-sm font-medium">Execution Days</p>
-                <p className="text-3xl font-bold text-foreground">{executionDates}</p>
-              </div>
-              <div className="h-12 w-12 bg-accent rounded-full flex items-center justify-center">
-                <Calendar className="h-6 w-6 text-accent-foreground" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Test Status Breakdown */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Test Status Distribution</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <CheckCircle className="h-4 w-4 text-success" />
-                  <span className="text-sm font-medium">Passed</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm text-muted-foreground">{passedTests}</span>
-                  <Badge className="bg-success text-success-foreground">{passRate.toFixed(1)}%</Badge>
-                </div>
-              </div>
-              <Progress value={passRate} className="h-2" />
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <XCircle className="h-4 w-4 text-destructive" />
-                  <span className="text-sm font-medium">Failed</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm text-muted-foreground">{failedTests}</span>
-                  <Badge className="bg-destructive text-destructive-foreground">{failRate.toFixed(1)}%</Badge>
-                </div>
-              </div>
-              <Progress value={failRate} className="h-2" />
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <AlertCircle className="h-4 w-4 text-warning" />
-                  <span className="text-sm font-medium">Blocked</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm text-muted-foreground">{blockedTests}</span>
-                  <Badge className="bg-warning text-warning-foreground">
-                    {totalTests > 0 ? ((blockedTests / totalTests) * 100).toFixed(1) : 0}%
-                  </Badge>
-                </div>
-              </div>
-              <Progress value={totalTests > 0 ? (blockedTests / totalTests) * 100 : 0} className="h-2" />
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Not Executed</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm text-muted-foreground">{notExecutedTests}</span>
-                  <Badge variant="outline">
-                    {totalTests > 0 ? ((notExecutedTests / totalTests) * 100).toFixed(1) : 0}%
-                  </Badge>
-                </div>
-              </div>
-              <Progress value={totalTests > 0 ? (notExecutedTests / totalTests) * 100 : 0} className="h-2" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Test Cases by Owner</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {uniqueOwners.map(owner => {
-                const ownerTests = testCases.filter(test => test.owner === owner);
-                const ownerPassRate = (ownerTests.filter(test => test.verdict === 'Pass').length / ownerTests.length) * 100;
-                
-                return (
-                  <div key={owner} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">{owner}</span>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-sm text-muted-foreground">{ownerTests.length} tests</span>
-                        <Badge variant="outline">{ownerPassRate.toFixed(0)}% pass</Badge>
-                      </div>
-                    </div>
-                    <Progress value={ownerPassRate} className="h-2" />
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Test Cases Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Test Cases Overview</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left p-3 font-medium">Test ID</th>
-                  <th className="text-left p-3 font-medium">Test Name</th>
-                  <th className="text-left p-3 font-medium">Status</th>
-                  <th className="text-left p-3 font-medium">Owner</th>
-                  <th className="text-left p-3 font-medium">Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {testCases.slice(0, 10).map((testCase, index) => (
-                  <tr key={index} className="border-b hover:bg-muted/50">
-                    <td className="p-3 font-mono text-sm">{testCase.id}</td>
-                    <td className="p-3">{testCase.name}</td>
-                    <td className="p-3">
-                      <div className="flex items-center space-x-2">
-                        {getVerdictIcon(testCase.verdict)}
-                        <Badge className={getVerdictColor(testCase.verdict)}>
-                          {testCase.verdict}
-                        </Badge>
-                      </div>
-                    </td>
-                    <td className="p-3">{testCase.owner}</td>
-                    <td className="p-3 text-sm text-muted-foreground">{testCase.executionDate}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {testCases.length > 10 && (
-              <div className="p-4 text-center text-muted-foreground">
-                Showing first 10 of {testCases.length} test cases
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-};
-
-
+import React, { useCallback } from 'react';
+import { useDropzone } from 'react-dropzone';
+import { Upload, FileSpreadsheet } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import * as XLSX from 'xlsx';
 
-export interface TestCase {
-  id: string;
-  name: string;
-  verdict: 'Pass' | 'Fail' | 'Blocked' | 'Not Executed';
-  executionDate: string;
-  owner: string;
-  verdictComment: string;
+interface FileUploadProps {
+  onDataLoad: (data: any[]) => void;
 }
 
-export const parseExcelFile = async (file: File): Promise<TestCase[]> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    
-    reader.onload = (e) => {
-      try {
-        const data = e.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
-        
-        // Get the first worksheet
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-        
-        // Convert to JSON
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-        
-        if (jsonData.length < 2) {
-          throw new Error('Excel file must contain at least a header row and one data row');
-        }
-        
-        // Assume first row is headers
-        const headers = jsonData[0] as string[];
-        const dataRows = jsonData.slice(1) as any[][];
-        
-        // Find column indices (case insensitive)
-        const findColumnIndex = (columnNames: string[]) => {
-          for (const name of columnNames) {
-            const index = headers.findIndex(header => 
-              header?.toString().toLowerCase().includes(name.toLowerCase())
+export const FileUpload: React.FC<FileUploadProps> = ({ onDataLoad }) => {
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    const file = acceptedFiles[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = e.target?.result;
+          const workbook = XLSX.read(data, { type: 'binary' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+          
+          // Convert to objects with proper headers
+          const jsonData2D = jsonData as any[][];
+          let headerRow = jsonData2D[0] as string[];
+          let dataStartRow = 1;
+          
+          // Define required columns in order
+          const requiredColumns = ['Name', 'Test Item ID', 'Verdict', 'Verdict Comment', 'Tester', 'Date'];
+          
+          // Check if required columns exist in first row, if not check second row
+          const hasRequiredColumns = (headers: string[]) => {
+            return requiredColumns.some(reqCol => 
+              headers.some(header => 
+                header && header.toString().toLowerCase().trim() === reqCol.toLowerCase()
+              )
             );
-            if (index !== -1) return index;
+          };
+          
+          if (!hasRequiredColumns(headerRow) && jsonData2D.length > 1) {
+            // Try second row as headers
+            headerRow = jsonData2D[1] as string[];
+            dataStartRow = 2;
           }
-          return -1;
-        };
-        
-        const idIndex = findColumnIndex(['Test Item ID']);
-        const nameIndex = findColumnIndex(['Name']);
-        const verdictIndex = findColumnIndex(['Verdict']);
-        const dateIndex = findColumnIndex(['Date']);
-        const ownerIndex = findColumnIndex(['Tester']);
-        const commentIndex = findColumnIndex(['Verdict Comment']);
-        
-        if (idIndex === -1 || nameIndex === -1 || verdictIndex === -1 || ownerIndex === -1) {
-          throw new Error('Required columns not found. Please ensure your Excel file has columns for: Test Case ID, Test Case Name, Verdict, and Owner');
-        }
-        
-        const testCases: TestCase[] = dataRows
-          .filter(row => row[idIndex] && row[nameIndex]) // Filter out empty rows
-          .map((row, index) => {
-            const verdict = row[verdictIndex]?.toString().toLowerCase();
-            let normalizedVerdict: TestCase['verdict'] = 'Not Executed';
-            
-            if (verdict?.includes('pass')) normalizedVerdict = 'Pass';
-            else if (verdict?.includes('fail')) normalizedVerdict = 'Fail';
-            else if (verdict?.includes('block')) normalizedVerdict = 'Blocked';
-            
-            return {
-              id: row[idIndex]?.toString() || `TC-${index + 1}`,
-              name: row[nameIndex]?.toString() || 'Unnamed Test Case',
-              verdict: normalizedVerdict,
-              executionDate: dateIndex !== -1 ? formatDate(row[dateIndex]) : new Date().toLocaleDateString(),
-              owner: row[ownerIndex]?.toString() || 'Unknown',
-              verdictComment: commentIndex !== -1 ? row[commentIndex]?.toString() || '' : ''
-            };
+          
+          const rows = jsonData2D.slice(dataStartRow);
+          
+          // Find the index of "Name" column
+          const nameColumnIndex = headerRow.findIndex(header => 
+            header && header.toString().toLowerCase().trim() === 'name'
+          );
+          
+          if (nameColumnIndex === -1) {
+            console.error('Name column not found in Excel file');
+            return;
+          }
+          
+          // Map required columns to their indices in the Excel file
+          const columnMapping: { [key: string]: number } = {};
+          requiredColumns.forEach(reqCol => {
+            const index = headerRow.findIndex(header => 
+              header && header.toString().toLowerCase().trim() === reqCol.toLowerCase()
+            );
+            if (index !== -1) {
+              columnMapping[reqCol] = index;
+            }
           });
-        
-        if (testCases.length === 0) {
-          throw new Error('No valid test case data found in the Excel file');
+          
+          const parsedData = rows.map(row => {
+            // Check if the cell next to "Name" column has content
+            const testCaseName = row[nameColumnIndex + 1];
+            
+            // More robust check for empty cells - ignore undefined, null, empty string, whitespace, numbers that are 0, etc.
+            if (!testCaseName || 
+                testCaseName === '' || 
+                (typeof testCaseName === 'string' && testCaseName.trim() === '') ||
+                testCaseName === null ||
+                testCaseName === undefined) {
+              return null; // Skip this row
+            }
+            
+            // Also check if Test Item ID is valid
+            const testItemId = columnMapping['Test Item ID'] !== undefined ? row[columnMapping['Test Item ID']] : '';
+            if (!testItemId || 
+                testItemId === '' || 
+                (typeof testItemId === 'string' && testItemId.trim() === '') ||
+                testItemId === null ||
+                testItemId === undefined) {
+              return null; // Skip this row if Test Item ID is empty
+            }
+            
+            const obj: any = {};
+            requiredColumns.forEach(column => {
+              if (column === 'Name') {
+                // Use the cell next to "Name" column for testcase name
+                obj[column] = testCaseName;
+              } else if (columnMapping[column] !== undefined) {
+                obj[column] = row[columnMapping[column]] || '';
+              } else {
+                obj[column] = '';
+              }
+            });
+            return obj;
+          }).filter(row => row !== null); // Remove null entries
+          
+          onDataLoad(parsedData);
+        } catch (error) {
+          console.error('Error parsing Excel file:', error);
         }
-        
-        resolve(testCases);
-      } catch (error) {
-        reject(error);
-      }
-    };
-    
-    reader.onerror = () => {
-      reject(new Error('Failed to read the file'));
-    };
-    
-    reader.readAsBinaryString(file);
-  });
-};
+      };
+      reader.readAsBinaryString(file);
+    }
+  }, [onDataLoad]);
 
-const formatDate = (dateValue: any): string => {
-  if (!dateValue) return new Date().toLocaleDateString();
-  
-  // Handle Excel date serial numbers
-  if (typeof dateValue === 'number') {
-    const excelDate = XLSX.SSF.parse_date_code(dateValue);
-    if (excelDate) {
-      return new Date(excelDate.y, excelDate.m - 1, excelDate.d).toLocaleDateString();
-    }
-  }
-  
-  // Handle string dates
-  if (typeof dateValue === 'string') {
-    const date = new Date(dateValue);
-    if (!isNaN(date.getTime())) {
-      return date.toLocaleDateString();
-    }
-  }
-  
-  return dateValue.toString();
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+      'application/vnd.ms-excel': ['.xls']
+    },
+    multiple: false
+  });
+
+  return (
+    <Card className="glass-effect shadow-card hover:shadow-elegant transition-all duration-300">
+      <div
+        {...getRootProps()}
+        className={`p-8 text-center cursor-pointer rounded-lg transition-all duration-300 ${
+          isDragActive 
+            ? 'bg-primary/10 border-primary border-2 border-dashed' 
+            : 'border-2 border-dashed border-border hover:border-primary/50'
+        }`}
+      >
+        <input {...getInputProps()} />
+        <div className="flex flex-col items-center space-y-4">
+          {isDragActive ? (
+            <FileSpreadsheet className="w-16 h-16 text-primary animate-bounce" />
+          ) : (
+            <Upload className="w-16 h-16 text-muted-foreground" />
+          )}
+          <div>
+            <h3 className="text-lg font-semibold mb-2">
+              {isDragActive ? 'Drop your Excel file here' : 'Upload Test Report'}
+            </h3>
+            <p className="text-muted-foreground mb-4">
+              Drop your Excel file here, or click to select
+            </p>
+            <Button variant="outline" className="mx-auto">
+              Select File
+            </Button>
+          </div>
+          <div className="text-xs text-muted-foreground">
+            <p>Supported formats: .xlsx, .xls</p>
+            <p>Required columns: Name, Test Item ID, Verdict, Verdict Comment, Tester, Date</p>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
 };
